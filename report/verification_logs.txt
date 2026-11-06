@@ -1,0 +1,94 @@
+=================== unit_before.log
+test_refuses_output_path_equal_to_source_image (test_preserve_bootloader.PreserveBootloaderTests.test_refuses_output_path_equal_to_source_image) ... ok
+test_refuses_to_overwrite_output (test_preserve_bootloader.PreserveBootloaderTests.test_refuses_to_overwrite_output) ... ok
+test_refuses_wrong_size (test_preserve_bootloader.PreserveBootloaderTests.test_refuses_wrong_size) ... ok
+test_rejects_bad_hash (test_preserve_bootloader.PreserveBootloaderTests.test_rejects_bad_hash) ... ok
+test_rejects_invalid_mbr_signature (test_preserve_bootloader.PreserveBootloaderTests.test_rejects_invalid_mbr_signature) ... ok
+test_rejects_invalid_partition_boot_flag (test_preserve_bootloader.PreserveBootloaderTests.test_rejects_invalid_partition_boot_flag) ... ok
+test_rejects_overlapping_mbr_partitions (test_preserve_bootloader.PreserveBootloaderTests.test_rejects_overlapping_mbr_partitions) ... ok
+test_rejects_partition_overlap (test_preserve_bootloader.PreserveBootloaderTests.test_rejects_partition_overlap) ... ok
+test_rejects_partition_past_end_of_image (test_preserve_bootloader.PreserveBootloaderTests.test_rejects_partition_past_end_of_image) ... ok
+test_rejects_protective_gpt_mbr (test_preserve_bootloader.PreserveBootloaderTests.test_rejects_protective_gpt_mbr) ... ok
+test_success_creates_candidate_and_preserves_other_bytes (test_preserve_bootloader.PreserveBootloaderTests.test_success_creates_candidate_and_preserves_other_bytes) ... ok
+
+----------------------------------------------------------------------
+Ran 11 tests in 0.042s
+
+OK
+=================== helper_run1
+status: UNTESTED — DO NOT FLASH
+source_image: /home/claude/work/it/synthetic_original.img
+candidate_image: /home/claude/work/it/candidate.img
+image_size: 337641746
+bootloader_offset: 8192
+bootloader_size: 896329
+bootloader_sha256: 2cc42f955c5d0c5042b307ff67b646aa8d49740e2b0680a411506738b03e73eb
+first_partition_offset: 1048576
+bootloader_end_offset: 904521
+readback_sha256: 2cc42f955c5d0c5042b307ff67b646aa8d49740e2b0680a411506738b03e73eb
+outside_region_unchanged: True
+exit=exit=0
+=================== independent_verify.log
+Binary size | 896329 bytes | 896329 bytes | PASS
+Binary SHA-256 | 2cc42f955c5d0c5042b307ff67b646aa8d49740e2b0680a411506738b03e73eb | 2cc42f955c5d0c5042b307ff67b646aa8d49740e2b0680a411506738b03e73eb | PASS
+Candidate exists | yes | True | PASS
+Candidate size == original | 337641746 | 337641746 | PASS
+Region bytes == ref (direct compare) | exact | True | PASS
+Extracted region SHA-256 | 2cc42f955c5d0c5042b307ff67b646aa8d49740e2b0680a411506738b03e73eb | 2cc42f955c5d0c5042b307ff67b646aa8d49740e2b0680a411506738b03e73eb | PASS
+First differing byte offset | 0x2000 | 0x2000 | PASS
+Last differing byte offset | <= 904520 | 904520 | PASS
+Bytes before region [0,0x2000) | unchanged | True | PASS
+Bytes after region [904521,EOF) | unchanged | True | PASS
+Post-region gap still 0xBB sentinel | all 0xBB | True | PASS
+Candidate MBR sig | 55aa | 55aa | PASS
+Partition table identical | identical | True | PASS
+Original image unchanged (SHA-256) | e5ba58a861db00d41e7c3ac78e78c749b51b6b29ea6b93a740d0d89082093ed3 | e5ba58a861db00d41e7c3ac78e78c749b51b6b29ea6b93a740d0d89082093ed3 | PASS
+ALL PASS
+=================== cli_crosscheck.log
+cmp: differing bytes=882616 first(1-based)=8193 last(1-based)=904521
+2cc42f955c5d0c5042b307ff67b646aa8d49740e2b0680a411506738b03e73eb  -
+cmp region vs reference: identical
+e5ba58a861db00d41e7c3ac78e78c749b51b6b29ea6b93a740d0d89082093ed3  synthetic_original.img
+e5ba58a861db00d41e7c3ac78e78c749b51b6b29ea6b93a740d0d89082093ed3  it/synthetic_original.img
+=================== negative_tests.log
+[tampered-bin(1 byte)] exit=0 stderr= output_created=yes
+[wrong-size-bin] exit=2 stderr=ERROR: Bootloader size mismatch: got 896328, expected 896329  output_created=no
+[partition-start-too-low(LBA1024)] exit=2 stderr=ERROR: Bootloader ends at 904521, beyond first partition at 524288  output_created=no
+[bad-mbr-signature] exit=2 stderr=ERROR: Invalid MBR signature (expected 0x55AA)  output_created=no
+[output==source] exit=2 stderr=ERROR: Refusing to overwrite existing output: /home/claude/work/it/synthetic_original.img  output_created=yes
+[output==bootloader] exit=2 stderr=ERROR: Refusing to overwrite existing output: /home/claude/work/it/refcopy.bin  output_created=yes
+[dangling-symlink-output] exit=2 stderr=ERROR: Refusing to overwrite existing output: /home/claude/work/it/dangling.img  output_created=no
+lrwxrwxrwx 1 root root 19 Nov  6 12:36 dangling.img -> /nonexistent/target
+ls: cannot access '/nonexistent': No such file or directory
+[source=/dev/null] exit=2 stderr=ERROR: Source image and bootloader must both be regular files  output_created=no
+[missing-source] exit=2 stderr=ERROR: [Errno 2] No such file or directory: 'nope.img'  output_created=no
+--- leftover temp files:
+none
+--- original still unchanged:
+e5ba58a861db00d41e7c3ac78e78c749b51b6b29ea6b93a740d0d89082093ed3  synthetic_original.img
+e5ba58a861db00d41e7c3ac78e78c749b51b6b29ea6b93a740d0d89082093ed3  it/synthetic_original.img
+--- refcopy unchanged:
+2cc42f955c5d0c5042b307ff67b646aa8d49740e2b0680a411506738b03e73eb  refcopy.bin
+=================== negative_tampered.log
+[tampered-A] sha=9b2d154bd5ae0c3a... exit=2 stderr=ERROR: Bootloader SHA-256 mismatch: got 9b2d154bd5ae0c3a21e24685ecc33cbe98da2c126679cb0e2f278a647768d922, expected 2cc42f955c5d0c5042b307ff67b646aa8d49740e2b068 output_created=no
+[tampered-B] sha=41214cb1ba8ccd35... exit=2 stderr=ERROR: Bootloader SHA-256 mismatch: got 41214cb1ba8ccd353f7a992e1fcb089b5339f1d9fb1d3ca368955d6c923bb251, expected 2cc42f955c5d0c5042b307ff67b646aa8d49740e2b068 output_created=no
+no leftover temp files
+=================== boundary_test.log
+first LBA clearing the binary: 1767 (byte 904704 )
+LBA 1766 (start byte 904192): exit=2 ERROR: Bootloader ends at 904521, beyond first partition at 904192 output_created=no
+LBA 1767 (start byte 904704): exit=0  output_created=yes
+=================== binary_structure.log
+size 896329
+magic@4 b'eGON.BT0'
+eGON length field 49152 stored checksum 0xee809e49
+recomputed checksum 0xee809e49 match True
+FIT magic @ 49152 d00dfeed
+FDT totalsize 847177 SPL+FIT 896329 == file size True
+last non-zero offset in file 895329 -> image offset 903521 ; trailing zero bytes 999
+image end offset 904521 spare before 1MiB 144055
+SPL signature 'SPL\x02' @0x14: b'SPL\x02'
+allwinner/sun55i-a527-cubie-a5e found@ 44
+2026.01_armbian found@ 39478
+v2.13.0(debug):armbian found@ 860837
+SPL sha256 90766957a3107c173a0d11d6d9d0c1369dc2c6720aa52c395406c4a74cfc7352
+FIT sha256 73acf675878c7341c6028299dbef135799e580feead45a2489107e3d71ccfbce
