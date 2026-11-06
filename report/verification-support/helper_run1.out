@@ -1,0 +1,11 @@
+status: UNTESTED — DO NOT FLASH
+source_image: /home/claude/work/it/synthetic_original.img
+candidate_image: /home/claude/work/it/candidate.img
+image_size: 337641746
+bootloader_offset: 8192
+bootloader_size: 896329
+bootloader_sha256: 2cc42f955c5d0c5042b307ff67b646aa8d49740e2b0680a411506738b03e73eb
+first_partition_offset: 1048576
+bootloader_end_offset: 904521
+readback_sha256: 2cc42f955c5d0c5042b307ff67b646aa8d49740e2b0680a411506738b03e73eb
+outside_region_unchanged: True
