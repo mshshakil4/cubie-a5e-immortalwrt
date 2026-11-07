@@ -3,8 +3,9 @@
 
 This tool never modifies the input image. It requires an MBR-partitioned image,
 checks the approved bootloader digest and size, checks the first partition
-boundary, writes only the bootloader region at 0x2000, and verifies read-back
-and all bytes outside that region before publishing the candidate.
+boundary, writes the bootloader at 0x2000, zero-fills the remaining reserved
+space up to partition 1, and verifies read-back plus unchanged bytes outside
+that reserved area before publishing the candidate.
 """
 from __future__ import annotations
 import argparse
