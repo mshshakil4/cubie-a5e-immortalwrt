@@ -2,7 +2,7 @@
 
 **Last reviewed:** 2026-11-07 (UTC)  
 
-> **Current handoff — 2026-11-07:** Main has a successful full-image inspection run and a separate helper-test run. The normal image contains a newly built U-Boot/SPL that differs from the known-working reference, so it remains **UNTESTED / DO NOT FLASH**. A separate integration change is now being prepared on `fix/bootloader-preservation-ci`: it zero-fills the reserved bootloader gap, tests that behavior, and adds a separate preserved-bootloader candidate artifact to the full-image workflow. The candidate workflow has not yet completed; see the latest dated entry below. Do not treat CI or helper success as hardware boot validation.
+> **Current handoff — 2026-11-07:** PR #1 has been merged into `main` as commit `31fd5c40b1a7121ad4f89afefe77870943c94d6f`. The pull-request helper CI passed all 12 tests. The merge triggered a new full-image inspection run and a new helper-test run; both are currently in progress. The full-image job is intended to produce a separate preserved-bootloader candidate using the pinned reference binary. No result is claimed until those runs complete and the artifact is inspected. Every image remains **UNTESTED / DO NOT FLASH**; CI success is not hardware boot validation.
 
 **Board:** Radxa Cubie A5E V1.20, Allwinner A527 / sun55i, 1 GB RAM  
 **Default branch:** `main`  
@@ -706,3 +706,15 @@ Do not treat a filename, report, or copied checksum as binary verification. When
 5. Only then consider a separate microSD hardware test with a recovery plan. Never write SPI or alter DRAM settings as part of this work.
 
 **Current status:** implementation prepared; CI and physical boot validation pending. All images remain **UNTESTED — DO NOT FLASH**.
+
+
+---
+
+## 2026-11-07 — Merge and CI execution
+
+- Pull request [#1](https://github.com/mshshakil4/cubie-a5e-immortalwrt/pull/1), **Integrate verified bootloader preservation into A5E image inspection**, was squash-merged into `main` as `31fd5c40b1a7121ad4f89afefe77870943c94d6f`.
+- Pull-request helper workflow run [42349160246](https://github.com/mshshakil4/cubie-a5e-immortalwrt/actions/runs/42349160246) completed successfully. All 12 unit tests passed, including the non-zero-padding regression test; Python compilation and `git diff --check` also passed.
+- Merge automatically started the main-branch helper workflow run [42349184435](https://github.com/mshshakil4/cubie-a5e-immortalwrt/actions/runs/42349184435) and full-image inspection run [42349184438](https://github.com/mshshakil4/cubie-a5e-immortalwrt/actions/runs/42349184438). Both were in progress at the time of this entry.
+- The full-image workflow now builds the ordinary inspection image, retrieves the integrated reference binary from `reference-files`, assembles a separate candidate with the helper, compresses it, and uploads validation output/manifests. The ordinary image is not modified by the helper.
+- Next gate: wait for both main-branch runs; if the full-image run succeeds, download and independently inspect the preserved candidate artifact. Confirm the reference bootloader hash at offset `0x2000`, zero-filled gap to the first partition, exact partition boundary, unchanged partition/filesystem data, boot script, kernel/DTB and PARTUUID.
+- No board, microSD or SPI write was performed. No DRAM values were changed. The candidate remains **UNTESTED — DO NOT FLASH** until static artifact review and a separate controlled hardware test.
