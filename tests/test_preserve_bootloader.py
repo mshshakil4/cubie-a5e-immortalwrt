@@ -22,6 +22,8 @@ class PreserveBootloaderTests(unittest.TestCase):
         module.EXPECTED_BOOTLOADER_SHA256 = hashlib.sha256(self.payload).hexdigest()
         self._write_mbr(self.image, first_lba=2048)
         with self.image.open("r+b") as f:
+            f.seek(904521)
+            f.write(b"X" * (1024 * 1024 - 904521))
             f.seek(1024 * 1024)
             f.write(b"PARTITION-DATA")
         self.boot.write_bytes(self.payload)
@@ -49,9 +51,18 @@ class PreserveBootloaderTests(unittest.TestCase):
         self.assertEqual(after[:module.BOOTLOADER_OFFSET], before[:module.BOOTLOADER_OFFSET])
         start, end = module.BOOTLOADER_OFFSET, module.BOOTLOADER_OFFSET + len(self.payload)
         self.assertEqual(after[start:end], self.payload)
-        self.assertEqual(after[end:], before[end:])
+        self.assertEqual(after[end:1024 * 1024], bytes(1024 * 1024 - end))
+        self.assertEqual(after[1024 * 1024:], before[1024 * 1024:])
         self.assertTrue(result["outside_region_unchanged"])
+        self.assertEqual(result["zero_filled_padding_bytes"], 1024 * 1024 - end)
         self.assertEqual(result["readback_sha256"], hashlib.sha256(self.payload).hexdigest())
+
+    def test_zero_fills_nonzero_reserved_padding(self):
+        result = module.assemble(self.image, self.boot, self.output)
+        data = self.output.read_bytes()
+        end = module.BOOTLOADER_OFFSET + len(self.payload)
+        self.assertEqual(data[end:1024 * 1024], bytes(1024 * 1024 - end))
+        self.assertEqual(result["zero_filled_padding_bytes"], 1024 * 1024 - end)
 
     def test_rejects_bad_hash(self):
         self.boot.write_bytes(b"wrong payload")
