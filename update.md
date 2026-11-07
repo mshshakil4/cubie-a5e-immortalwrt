@@ -17,7 +17,7 @@ Develop reproducible ImmortalWrt support for the Radxa Cubie A5E 1 GB board, ult
 - Preserve the working ImmortalWrt microSD and original image files.
 - Do not write SPI, Boot0/SPL, TF-A, U-Boot, or DRAM timing data.
 - Never apply 2 GB/4 GB DRAM settings to this 1 GB board.
-- Do not flash current CI artifacts: they are kernel/DTB validation outputs, not firmware.
+- Do not flash any CI image until its static checks and controlled hardware validation gates are complete; the current full-image candidate is explicitly UNTESTED.
 - Treat undocumented boot offsets, DRAM clocks/geometry, memory ranges, and FIT load/entry addresses as unknown until verified.
 
 ## Hardware / working baseline
@@ -718,3 +718,19 @@ Do not treat a filename, report, or copied checksum as binary verification. When
 - The full-image workflow now builds the ordinary inspection image, retrieves the integrated reference binary from `reference-files`, assembles a separate candidate with the helper, compresses it, and uploads validation output/manifests. The ordinary image is not modified by the helper.
 - Next gate: wait for both main-branch runs; if the full-image run succeeds, download and independently inspect the preserved candidate artifact. Confirm the reference bootloader hash at offset `0x2000`, zero-filled gap to the first partition, exact partition boundary, unchanged partition/filesystem data, boot script, kernel/DTB and PARTUUID.
 - No board, microSD or SPI write was performed. No DRAM values were changed. The candidate remains **UNTESTED — DO NOT FLASH** until static artifact review and a separate controlled hardware test.
+
+
+---
+
+## 2026-11-07 — Full-image workflow success and independent artifact inspection
+
+- Full-image workflow [run 42349184438](https://github.com/mshshakil4/cubie-a5e-immortalwrt/actions/runs/42349184438), run #2, completed with conclusion **success** on project commit `31fd5c40b1a7121ad4f89afefe77870943c94d6f`. All 17 job steps passed, including pinned-source checkout, helper tests, toolchain/dependency setup, exact A5E profile configuration, Linux 6.18 IOMMU callback compatibility patch, complete image build, image inspection and artifact upload.
+- Artifact `cubie-a5e-UNTESTED-full-image-inspection`, ID `13567360998`, was downloaded. ZIP SHA-256: `d7a67f4e5aa2a01803ce8975757f85d9b2022be0280cfffe68436f1e17620c10`. Artifact retention is seven days from 2026-11-07 08:25 UTC.
+- Both compressed image files pass `gzip -t`. The preserved candidate compressed-image SHA-256 is `5db026dfe2f5e55cb2be5576de8750511257f518a6f1162091130111291abffc`; uncompressed image size is 190,841,099 bytes.
+- Preservation validation confirms the approved reference U-Boot/SPL binary is placed at offset 8,192, length 896,329 bytes, SHA-256 `2cc42f955c5d0c5042b307ff67b646aa8d49740e2b0680a411506738b03e73eb`. Readback hash matches. The reserved gap through first partition offset 1,048,576 is zero-filled (144,055 bytes), and the helper reports `outside_region_unchanged: True`.
+- Candidate MBR: DOS label, disk ID `0x5452574f`; p1 start 2,048 sectors / 40,960 sectors (20 MiB, FAT32-LBA partition type; actual filesystem detected as FAT16); p2 start 45,056 sectors / 327,680 sectors (160 MiB, ext4). MBR signature is `55aa`. This matches the user's working card's p1 and p2 start sectors. Candidate root ext4 UUID is `ff313567-e9f1-5a5d-9895-3ba130b4a864`, matching the UUID reported by the working system. Candidate p1 filesystem UUID is `6AEC-00B5`; the working card reports `6A28-DBA2`.
+- Extracted candidate boot script is 375 bytes, SHA-256 `df82077497550e5385d0f139271cbbdf98c01d8902bac9701b8e546828164ce4`. Its command payload matches the working/reference script's observed commands: set root partition 2, obtain its PARTUUID, load `uImage` from FAT, set the same console/coherent-pool/rootwait arguments, and invoke `bootm`. Its binary hash differs from the user's working script hash `6b6e846f0f386c9809f33c51d2219c6da281337bbcd6f805752806db9ca5f814`; inspection shows the candidate is a valid legacy U-Boot script image with its own generated header timestamp and checksums. The command payload—not the entire generated header—is the matching portion.
+- Extracted candidate `uImage` is an ARM64 OpenWrt FIT image (FDT-based FIT container), with strings identifying Linux 6.18.60 and `kernel-1`, `fdt-1`, and `config-1` components. The `file` utility labels the FDT container generically as a Device Tree Blob; FIT-identifying strings confirm it is the OpenWrt FIT container, not a bare DTB.
+- Candidate FAT filesystem UUID and boot script header differ from the working card; this is not automatically a blocker because the boot script resolves the root partition PARTUUID at boot. Rootfs filesystem UUID and partition start positions match. The candidate root partition is intentionally only 160 MiB; the working card's root partition has expanded to fill its larger card.
+- **Not proven:** physical boot, DRAM behavior on the exact board, runtime DTB fixups, Ethernet/USB/Wi-Fi/peripheral operation, reboot stability, or any hardware recovery behavior. The build manifest still marks DRAM parameters NOT approved. CI success and static image inspection are not hardware validation.
+- **Decision:** static artifact inspection passed the checks above, but do not yet tell the user to flash. Next, inspect FIT metadata (config, kernel/FDT hashes and load/entry properties), compare the candidate FIT/DTB and kernel with the known-working FIT where the reference data allows, review the full rootfs/network defaults and boot path, and prepare a network-only first-boot/recovery checklist. Then test only on a second microSD card; keep the working card and SPI untouched. No hardware or storage was written during this inspection.
