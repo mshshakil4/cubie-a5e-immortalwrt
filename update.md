@@ -1,6 +1,9 @@
 # Project update / AI handoff
 
-**Last reviewed:** 2026-11-05 (UTC)  
+**Last reviewed:** 2026-11-07 (UTC)  
+
+> **Current handoff — 2026-11-07:** Main has a successful full-image inspection run and a separate helper-test run. The normal image contains a newly built U-Boot/SPL that differs from the known-working reference, so it remains **UNTESTED / DO NOT FLASH**. A separate integration change is now being prepared on `fix/bootloader-preservation-ci`: it zero-fills the reserved bootloader gap, tests that behavior, and adds a separate preserved-bootloader candidate artifact to the full-image workflow. The candidate workflow has not yet completed; see the latest dated entry below. Do not treat CI or helper success as hardware boot validation.
+
 **Board:** Radxa Cubie A5E V1.20, Allwinner A527 / sun55i, 1 GB RAM  
 **Default branch:** `main`  
 **Related project:** [OpenWrt companion repository](https://github.com/5H4K1L/cubie-a5e-openwrt)
@@ -670,3 +673,36 @@ Do not treat a filename, report, or copied checksum as binary verification. When
 - Do not increase spending or enable paid usage unless the user chooses to. No rerun has been started. Retry the isolated helper workflow only after the user confirms the Actions usage/billing restriction is resolved and authorizes a retry.
 - Local validation remains unchanged: py_compile passed and 11/11 unit tests passed. The actual reference-binary assembly fixture remains outstanding.
 - No firmware/kernel build, merge, image assembly, flashing, or hardware write occurred. Scope remains only this ImmortalWrt repository.
+
+
+---
+
+## 2026-11-07 — Preserved-bootloader candidate integration PR
+
+**Active branch:** [`fix/bootloader-preservation-ci`](https://github.com/mshshakil4/cubie-a5e-immortalwrt/tree/fix/bootloader-preservation-ci)  
+**Base:** `main` at `10b471857f18fea42736f00db515d7622147d75b`  
+**Scope:** active ImmortalWrt repository only.
+
+### Implemented on the branch
+
+- The preservation helper now explicitly zero-fills the unused reserved area between the end of the approved 896,329-byte integrated bootloader and the first MBR partition.
+- It verifies that the padding is zero, hashes the read-back bootloader, checks image size, preserves bytes before offset `0x2000`, and preserves all bytes from the first partition onward. The source image is never modified and an existing output is never overwritten.
+- The synthetic fixture now deliberately places non-zero bytes in the reserved gap. Tests assert that the helper clears this gap and leaves partition data unchanged.
+- The full-image workflow checks out the `reference-files` branch, runs helper tests, and creates a separate compressed `UNTESTED-preserved-bootloader-candidate.img.gz`. The normal generated image remains a separate artifact; neither is approved for flashing.
+
+### Review and validation status
+
+- The changes are committed to the feature branch; they have not been merged to `main`.
+- GitHub source review confirms the intended helper, test and workflow edits are present. The exact branch test suite and integrated full-image workflow still need to execute successfully.
+- The full-image workflow is intentionally not run on every pull request because it is a long, resource-intensive build. After review/merge to `main`, its path filter will trigger a full build if GitHub Actions is available.
+- The isolated helper workflow runs on pull requests. GitHub Actions usage/billing restrictions previously prevented some jobs from receiving a runner; if that restriction remains, no CI verdict can be claimed.
+
+### Remaining gates
+
+1. Obtain a passing helper-test workflow run on this exact branch.
+2. Merge only after reviewing the PR and helper-test result.
+3. Obtain a successful full-image workflow run that produces the separate candidate.
+4. Independently inspect the candidate's bootloader hash/readback, zero padding, partition boundary, filesystem, kernel/DTB, boot script and PARTUUID consistency.
+5. Only then consider a separate microSD hardware test with a recovery plan. Never write SPI or alter DRAM settings as part of this work.
+
+**Current status:** implementation prepared; CI and physical boot validation pending. All images remain **UNTESTED — DO NOT FLASH**.

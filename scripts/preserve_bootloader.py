@@ -3,8 +3,9 @@
 
 This tool never modifies the input image. It requires an MBR-partitioned image,
 checks the approved bootloader digest and size, checks the first partition
-boundary, writes only the bootloader region at 0x2000, and verifies read-back
-and all bytes outside that region before publishing the candidate.
+boundary, writes the bootloader at 0x2000, zero-fills the remaining reserved
+space up to partition 1, and verifies read-back plus unchanged bytes outside
+that reserved area before publishing the candidate.
 """
 from __future__ import annotations
 import argparse
@@ -88,8 +89,8 @@ def _hash_region(stream, length: int, chunk_size: int = 1024 * 1024) -> str:
     return digest.hexdigest()
 
 
-def _compare_outside_region(source: Path, candidate: Path, start: int, end: int) -> None:
-    """Require byte-for-byte equality before start and after end."""
+def _compare_outside_region(source: Path, candidate: Path, start: int, reserved_end: int) -> None:
+    """Require equality before the reservation and after the first partition."""
     with source.open("rb") as original, candidate.open("rb") as output:
         original.seek(0)
         output.seek(0)
@@ -99,8 +100,8 @@ def _compare_outside_region(source: Path, candidate: Path, start: int, end: int)
             if original.read(size) != output.read(size):
                 raise ValidationError("Candidate differs from source before bootloader region")
             remaining -= size
-        original.seek(end)
-        output.seek(end)
+        original.seek(reserved_end)
+        output.seek(reserved_end)
         while True:
             a, b = original.read(1024 * 1024), output.read(1024 * 1024)
             if a != b:
@@ -146,6 +147,13 @@ def assemble(source_image: Path, bootloader: Path, output_image: Path) -> dict[s
         with temp_path.open("r+b") as output, bootloader.open("rb") as payload:
             output.seek(BOOTLOADER_OFFSET)
             shutil.copyfileobj(payload, output, length=1024 * 1024)
+            # Explicitly clear the unused bootloader reservation up to partition 1.
+            remaining = partition_offset - end_offset
+            zero_block = bytes(min(1024 * 1024, max(1, remaining)))
+            while remaining:
+                chunk = zero_block[:min(len(zero_block), remaining)]
+                output.write(chunk)
+                remaining -= len(chunk)
             output.flush()
             os.fsync(output.fileno())
         with temp_path.open("rb") as candidate:
@@ -155,7 +163,15 @@ def assemble(source_image: Path, bootloader: Path, output_image: Path) -> dict[s
             raise ValidationError("Bootloader read-back SHA-256 verification failed")
         if temp_path.stat().st_size != image_size:
             raise ValidationError("Candidate image size changed during assembly")
-        _compare_outside_region(source_image, temp_path, BOOTLOADER_OFFSET, end_offset)
+        with temp_path.open("rb") as candidate:
+            candidate.seek(end_offset)
+            remaining = partition_offset - end_offset
+            while remaining:
+                chunk = candidate.read(min(1024 * 1024, remaining))
+                if not chunk or any(chunk):
+                    raise ValidationError("Unused bootloader reservation is not fully zero-filled")
+                remaining -= len(chunk)
+        _compare_outside_region(source_image, temp_path, BOOTLOADER_OFFSET, partition_offset)
         try:
             os.link(temp_path, output_image)
         except FileExistsError:
@@ -170,6 +186,8 @@ def assemble(source_image: Path, bootloader: Path, output_image: Path) -> dict[s
             "bootloader_sha256": bootloader_hash,
             "first_partition_offset": partition_offset,
             "bootloader_end_offset": end_offset,
+            "reserved_region_end_offset": partition_offset,
+            "zero_filled_padding_bytes": partition_offset - end_offset,
             "readback_sha256": readback_hash,
             "outside_region_unchanged": True,
         }

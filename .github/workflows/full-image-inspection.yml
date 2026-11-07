@@ -8,6 +8,8 @@ on:
     paths:
       - "build/**"
       - ".github/workflows/full-image-inspection.yml"
+      - "scripts/preserve_bootloader.py"
+      - "tests/test_preserve_bootloader.py"
       - ".github/workflows/kernel-validation.yml"
       - "README.md"
 
@@ -21,6 +23,19 @@ jobs:
     steps:
       - name: Check out this project
         uses: actions/checkout@v4
+
+      - name: Check out known-working bootloader reference
+        uses: actions/checkout@v4
+        with:
+          repository: mshshakil4/cubie-a5e-immortalwrt
+          ref: reference-files
+          path: reference-assets
+
+      - name: Test bootloader preservation helper
+        run: |
+          set -eu
+          python3 -m py_compile scripts/preserve_bootloader.py tests/test_preserve_bootloader.py
+          python3 -m unittest discover -s tests -v
 
       - name: Check out pinned ImmortalWrt source
         uses: actions/checkout@v4
@@ -124,10 +139,29 @@ jobs:
             if [ -f output/candidate-u-boot-with-spl.bin ]; then sha256sum output/candidate-u-boot-with-spl.bin; fi
             if [ -f output/candidate-boot.scr ]; then sha256sum output/candidate-boot.scr; fi
           } > output/BUILD-MANIFEST.txt
-          rm -f output/inspection.img
+          python3 scripts/preserve_bootloader.py \
+            --image output/inspection.img \
+            --bootloader reference-assets/reference/u-boot-sunxi-with-spl.bin \
+            --output output/UNTESTED-preserved-bootloader-candidate.img \
+            | tee output/PRESERVATION-VALIDATION.txt
+          gzip -n -c output/UNTESTED-preserved-bootloader-candidate.img > output/UNTESTED-preserved-bootloader-candidate.img.gz
+          sha256sum reference-assets/reference/u-boot-sunxi-with-spl.bin > output/REFERENCE-BOOTLOADER-SHA256.txt
+          sha256sum output/UNTESTED-preserved-bootloader-candidate.img.gz > output/PRESERVED-CANDIDATE-SHA256.txt
+          cat > output/PRESERVED-CANDIDATE-MANIFEST.txt <<EOF
+          status=UNTESTED - DO NOT FLASH
+          board=Radxa Cubie A5E V1.20; 1GB RAM owner-reported
+          bootloader_source=reference-files/reference/u-boot-sunxi-with-spl.bin
+          bootloader_offset=8192
+          bootloader_size=896329
+          bootloader_sha256=2cc42f955c5d0c5042b307ff67b646aa8d49740e2b0680a411506738b03e73eb
+          candidate_image=UNTESTED-preserved-bootloader-candidate.img.gz
+          source_image=UNTESTED-radxa-cubie-a5e-sdcard.img.gz
+          EOF
+          rm -f output/UNTESTED-preserved-bootloader-candidate.img output/inspection.img
           ls -lh output
           cat output/partition-table.txt
           cat output/BUILD-MANIFEST.txt
+          cat output/PRESERVED-CANDIDATE-MANIFEST.txt
 
       - name: Upload untested inspection artifacts
         uses: actions/upload-artifact@v4
